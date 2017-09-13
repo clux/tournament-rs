@@ -59,8 +59,12 @@ impl Ord for Match {
 }
 
 impl Match {
-    pub fn started(&self) -> bool {
-        return self.players.iter().all(|p| p > &INVALID);
+    pub fn is_ready(&self) -> bool {
+        self.players.iter().all(|p| *p > PLACEHOLDER)
+    }
+
+    pub fn contains(&self, player: Seed) -> bool {
+        self.players.iter().any(|p| *p == player)
     }
 }
 
