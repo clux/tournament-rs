@@ -1,6 +1,6 @@
 # tournament
-[![build status](https://secure.travis-ci.org/clux/tournament.svg)](http://travis-ci.org/clux/tournament)
-[![coverage status](http://img.shields.io/coveralls/clux/tournament.svg)](https://coveralls.io/r/clux/tournament)
+[![build status](https://secure.travis-ci.org/clux/tournament-rs.svg)](http://travis-ci.org/clux/tournament-rs)
+[![coverage status](http://img.shields.io/coveralls/clux/tournament-rs.svg)](https://coveralls.io/r/clux/tournament-rs)
 [![crates status](https://img.shields.io/crates/v/tournament.svg)](https://crates.io/crates/tournament)
 
 An experiment rewriting [tournament-js](https://github.com/clux/tournament) to rust.

@@ -12,7 +12,6 @@ pub enum Seed {
 }
 pub type Score = u32;
 
-// TODO: simpler serialize for this enum (shorter keys)
 /// A unique and sensible representation of a match in the tournament
 // NB: Ord for Duel works because GF are last in LB
 // it's a non-intuitive, but working order
@@ -22,10 +21,16 @@ pub type Score = u32;
 #[derive(Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct MatchId {
     /// Bracket/group/section of the match
+    #[serde(rename = "s")]
     pub section: u32,
     /// Round number in this section
+    #[serde(rename = "r")]
     pub round: u32,
     /// Match number in this round
+    ///
+    /// Note that match is a keyword, so using game internally, but avoid using `g`
+    /// because that can be confused with group numbers in group stages.
+    #[serde(rename = "m")]
     pub game: u32,
 }
 
@@ -34,6 +39,13 @@ impl fmt::Display for MatchId {
         write!(f, "S{}R{}G{}", self.section, self.round, self.game)
     }
 }
+
+impl MatchId {
+    pub fn new(section: u32, round: u32, game: u32) -> MatchId {
+        MatchId { section, round, game }
+    }
+}
+
 
 #[derive(Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Match {
@@ -75,10 +87,16 @@ pub trait Tournament {
 //
 
 
-// example implementation
-//struct Duel {
-//    matches: Vec<Match>,
-//}
-//impl Tournament for Duel {
-//
-//}
+
+#[cfg(test)]
+mod tests {
+    use super::MatchId;
+    use serde_json;
+
+    // legendre tests
+    #[test]
+    fn serialization() {
+        let id = MatchId::new(1, 2, 3);
+        assert_eq!("{\"s\":1,\"r\":2,\"m\":3}", serde_json::to_string(&id).unwrap());
+    }
+}
