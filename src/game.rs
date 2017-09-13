@@ -1,23 +1,51 @@
 use std::fmt;
 use std::cmp::Ordering;
+use serde::ser::{Serializer, Serialize};
+//use serde::de::{self, Visitor};
 
 use super::TRes;
 
-// TODO: simpler serialize for this enum
-#[derive(Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
 pub enum Seed {
     Invalid,
     Placeholder,
     Player(u32),
 }
+
+// Seed is always serialized as an integer - where >0 is a legit player value
+impl Serialize for Seed {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        match *self {
+            Seed::Invalid => serializer.serialize_i32(-1),
+            Seed::Placeholder => serializer.serialize_i32(0),
+            Seed::Player(n) => serializer.serialize_u32(n),
+        }
+    }
+}
+
+// TODO: maybe not create custom serializers/deserializers
+// the Deserialize requires a temporary struct with a Visitor trait implemented..
+// it's pretty hairy for a small type safety benefit of storing in a u32..
+
+//impl<'de> Deserialize<'de> for Seed {
+//    fn deserialize<D>(deserializer: D) -> Result<Seed, D::Error>
+//        where D: Deserializer<'de>
+//    {
+//        match deserializer.deserialize_i32(I32Visitor) {
+//            Ok(-1) => Seed::Invalid,
+//            Ok(0) => Seed::Placeholder,
+//            Ok(n) if n > 0 => Seed::Player(n),
+//            Ok(s) => Err(de::Error::custom(format!("seed out of range: {}", s))),
+//            Err(e) => Err(e),
+//        }
+//    }
+//}
+
 pub type Score = u32;
 
-/// A unique and sensible representation of a match in the tournament
-// NB: Ord for Duel works because GF are last in LB
-// it's a non-intuitive, but working order
-// anything more complicated wouldn't be easily sortable
-// but could be overridden perhaps
-// if we want this, then we need MatchId's factored into different impls
+/// A unique representation of a match in the tournament
 #[derive(Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct MatchId {
     /// Bracket/group/section of the match
@@ -36,7 +64,7 @@ pub struct MatchId {
 
 impl fmt::Display for MatchId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "S{}R{}G{}", self.section, self.round, self.game)
+        write!(f, "S{}R{}M{}", self.section, self.round, self.game)
     }
 }
 
@@ -47,7 +75,7 @@ impl MatchId {
 }
 
 
-#[derive(Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, PartialOrd, Serialize)]
 pub struct Match {
     /// A unique representation of the match in the tournament
     pub id: MatchId,
@@ -90,13 +118,38 @@ pub trait Tournament {
 
 #[cfg(test)]
 mod tests {
-    use super::MatchId;
+    use super::{MatchId, Seed};
     use serde_json;
 
-    // legendre tests
     #[test]
     fn serialization() {
         let id = MatchId::new(1, 2, 3);
         assert_eq!("{\"s\":1,\"r\":2,\"m\":3}", serde_json::to_string(&id).unwrap());
+
+
+        let womark = serde_json::to_string(&Seed::Invalid).unwrap();
+        assert_eq!(womark, "-1");
+        //let placeholder = Seed::Placeholder;
+        //assert_eq!(placeholder, 0);
+        let p2 = serde_json::to_string(&Seed::Player(2)).unwrap();
+        assert_eq!(p2, "2");
     }
+    #[test]
+    fn ordering() {
+        // lowest match id's by order can be played first
+        let w23 = MatchId::new(1, 2, 3);
+        let w41 = MatchId::new(1, 4, 1);
+        assert!(w23 < w41);
+        let l11 = MatchId::new(2, 1, 1);
+        assert!(w23 < l11);
+        let l21 = MatchId::new(2, 2, 1);
+        assert!(l21 > l11);
+
+        // NB: Ord for double eliminations Duel works because grand finals are in LB
+        // it's a non-intuitive, but working order that allows scoring in order
+        // anything more complicated wouldn't be easily sortable
+        // but could be overridden perhaps
+        // if we want this, then we need MatchId's factored into different impls
+    }
+
 }
