@@ -41,7 +41,7 @@ impl MatchId {
 }
 
 
-#[derive(Eq, PartialEq, PartialOrd, Serialize)]
+#[derive(Eq, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Match {
     /// A unique representation of the match in the tournament
     pub id: MatchId,
@@ -76,7 +76,7 @@ pub trait Tournament {
     /// Whether a function returns early TODO: opitonal (can check all matches by def)
     fn finished(&self) -> bool;
     /// How each tournament searches for matches
-    fn find(&self, id: MatchId) -> Match;
+    fn find(&self, id: MatchId) -> Option<&Match>;
 
     // Initialilze a tourament TODO: needs generic options struct
 }
