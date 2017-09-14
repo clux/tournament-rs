@@ -1,7 +1,7 @@
 use std::fmt;
 use std::cmp::Ordering;
 
-use super::TRes;
+//use super::TRes;
 
 // TODO: add sanity checks that Seed > 0 from user input
 const INVALID: i32 = -1;
@@ -36,7 +36,11 @@ impl fmt::Display for MatchId {
 
 impl MatchId {
     pub fn new(section: u32, round: u32, game: u32) -> MatchId {
-        MatchId { section, round, game }
+        MatchId {
+            section,
+            round,
+            game,
+        }
     }
 }
 
@@ -66,24 +70,68 @@ impl Match {
     pub fn contains(&self, player: Seed) -> bool {
         self.players.iter().any(|p| *p == player)
     }
+
+    pub fn is_scored(&self) -> bool {
+        self.scores.is_some()
+    }
 }
 
-pub trait Tournament {
-    /// Progression function that must return (because validate checked errors)
-    fn score(&mut self, id: MatchId, score: &Vec<Score>);
-    /// Score validator that takes generic error: TODO: template and optional!
-    fn validate(&self, id: MatchId, score: &Vec<Score>) -> TRes<()>;
-    /// Whether a function returns early TODO: opitonal (can check all matches by def)
-    fn finished(&self) -> bool;
-    /// How each tournament searches for matches
-    fn find(&self, id: MatchId) -> Option<&Match>;
+pub trait Base<E> {
+    // TODO: need to get ALL matches mutably for score (used in defaults)
+    /// Get a reference to the matches
+    fn get_matches(&self) -> &Vec<Match>;
+
+    /// Score validator that takes generic error
+    fn validate(&self, _: &Match, _: &Vec<Score>) -> Result<(), E> {
+        Ok(())
+    }
+
+    /// Check if a match is safe to rescore at this time
+    fn rescorable(&self, _: &Match) -> bool {
+        true
+    }
+
+    /// Whether a tournament is complete (some can finish early by overriding this)
+    fn finished(&self) -> bool {
+        self.get_matches().iter().all(|m| m.scores.is_some())
+    }
+
 
     // Initialilze a tourament TODO: needs generic options struct
 }
 
-// TODO: implement a helper trait for structs that impl Tournament
-//
-
+// TODO: implement a helper trait for structs that impl Base
+// - this needs to create `score`, `results`, etc..
+pub trait Tournament<E> {
+    fn find(&self, id: MatchId) -> Option<&Match>;
+    fn score(&mut self, id: MatchId, score: &Vec<Score>) -> Result<(), E>;
+}
+impl<T, E> Tournament<E> for T
+where
+    T: Base<E>,
+{
+    fn find(&self, id: MatchId) -> Option<&Match> {
+        self.get_matches().iter().find(|m| m.id == id)
+    }
+    fn score(&mut self, id: MatchId, score: &Vec<Score>) -> Result<(), E> {
+        if let Some(m) = self.find(id) {
+            if !m.is_ready() {
+                // return Err - missing players
+            }
+            if score.len() != m.players.len() {
+                // return Err - invalid score array length
+            }
+            // TODO: allow this to be overridden
+            if m.is_scored() && !self.rescorable(m) {
+                // return Err - cannot rescore past matches
+            }
+            self.validate(m, score)
+        } else {
+            // return Err - matchid not valid in tournament
+            unimplemented!();
+        }
+    }
+}
 
 
 #[cfg(test)]
@@ -94,15 +142,18 @@ mod tests {
     #[test]
     fn serialization() {
         let id = MatchId::new(1, 2, 3);
-        assert_eq!("{\"s\":1,\"r\":2,\"m\":3}", serde_json::to_string(&id).unwrap());
+        assert_eq!(
+            "{\"s\":1,\"r\":2,\"m\":3}",
+            serde_json::to_string(&id).unwrap()
+        );
 
-        let wo : Seed = INVALID;
+        let wo: Seed = INVALID;
         let womark = serde_json::to_string(&wo).unwrap();
         assert_eq!(womark, "-1");
-        let ph : Seed = PLACEHOLDER;
+        let ph: Seed = PLACEHOLDER;
         let placeholder = serde_json::to_string(&ph).unwrap();
         assert_eq!(placeholder, "0");
-        let p2 : Seed = 2;
+        let p2: Seed = 2;
         let player2 = serde_json::to_string(&p2).unwrap();
         assert_eq!(player2, "2");
     }
